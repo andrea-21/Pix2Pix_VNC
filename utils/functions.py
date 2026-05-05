@@ -205,18 +205,6 @@ def sort_path_key(path):
     num = float(os.path.splitext(elem[2])[0])
     return (head_comp, -num)
 
-def get_scale_shift(results, norm_type, kind, i, eps=1e-8):
-    if norm_type == 'minmax':
-        scale = results[f'{kind}_max'][i] - results[f'{kind}_min'][i]
-        shift = results[f'{kind}_min'][i]
-    elif norm_type == 'standard':
-        scale = results[f'{kind}_std'][i] + eps
-        shift = results[f'{kind}_mean'][i]
-    else:
-        raise ValueError(f"Normalizzazione non supportata: {norm_type}")
-    
-    return scale, shift
-
 
 # DEBUG per testare ordinamento
 '''paths = ['/mnt/raid/work/data/DECT_data/train/AN20580638/registration/AN20580638_registered_101.750.npy', #3
@@ -245,3 +233,16 @@ fileName = os.path.basename(paths[0])
 
 ord = sorted(paths, key = sort_path_key)
 print(ord)'''
+
+
+def get_scale_shift(results, norm_type, kind, i, eps=1e-8):
+    if norm_type == 'minmax':
+        scale = results[f'{kind}_max'][i] - results[f'{kind}_min'][i]
+        shift = results[f'{kind}_min'][i]
+    elif norm_type == 'standard':
+        scale = results[f'{kind}_std'][i] + eps
+        shift = results[f'{kind}_mean'][i]
+    else:
+        raise ValueError(f"Normalizzazione non supportata: {norm_type}")
+    
+    return scale, shift
