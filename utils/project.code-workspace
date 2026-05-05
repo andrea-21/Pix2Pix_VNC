@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"name": "project",
+			"path": "../../.."
+		},
+		{
+			"name": "versione_2_5D_test",
+			"path": "../.."
+		},
+		{
+			"name": "DECT_data",
+			"path": "../../../../../../../mnt/raid/work/data/DECT_data"
+		}
+	],
+	"settings": {}
+}
