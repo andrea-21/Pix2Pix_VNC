@@ -73,7 +73,7 @@ def getPatientAN(imgPath):
 def GetPatientParameters(imgPath, parameter, df):
     
     AN = getPatientAN(imgPath)
-
+    
     if parameter in df.columns:
         value = df.loc[df['AN'] == AN, str(parameter)].iloc[0]
     else:

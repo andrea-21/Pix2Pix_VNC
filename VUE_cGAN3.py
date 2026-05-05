@@ -188,16 +188,12 @@ if train:
 
     print("\nCopied all project folder in ", experimentPath, "\n")
         
-#%% Train Set 
-#TRAIN
-
+# Train path
 '''
 patientFolder = Path(r"/home/rossetti/DECT_data/train")
 if server == False:
     patientFolder = Path(r"C:\PhD\DECT\train")
 '''
-
-
 '''patientFolder = Path(r"/home/rossetti/DECT_data/train")
 if server == False:
     patientFolder = Path(r"D:\Tesi_magistrale\Codice\test2")'''
@@ -206,13 +202,7 @@ patientFolder = Path(r"/mnt/raid/work/data/DECT_data/train")
 if not server:
     patientFolder = Path(r"/home/cei/Codice/test2")
 
-
-#############
-# Generator #
-#############
-
-#%% Validation Set
-#VALIDATION
+# Validation path
 '''
 patientFolder_val = Path(r"/home/rossetti/DECT_data/validation")
 if server == False:
@@ -223,10 +213,23 @@ if server == False:
 if server == False:
     patientFolder_val = Path(r"D:\Tesi_magistrale\Codice\test2")'''
 
-# PER TEST USO CARTELLA DI TRAINING
 patientFolder_val = Path(r"/mnt/raid/work/data/DECT_data/validation")
 if not server:
     patientFolder_val = Path(r"\home\cei\Codice\test2")
+
+# Test path
+'''
+patientFolder = Path(r"/home/rossetti/DECT_data/train")
+if server == False:
+    patientFolder = Path(r"C:\PhD\DECT\train")
+'''
+'''patientFolder = Path(r"/home/rossetti/DECT_data/train")
+if server == False:
+    patientFolder = Path(r"D:\Tesi_magistrale\Codice\test2")'''
+
+patientFolder_test = Path(r"/mnt/raid/work/data/DECT_data/test")
+if not server:
+    patientFolder_test = Path(r"/home/cei/Codice/test2")
 
 
 data_dir = os.path.dirname(os.path.realpath(__file__))
@@ -237,42 +240,55 @@ data_dir = os.path.join(data_dir, 'data')
 # DataFrame of patient parameters (for patient by patient normalization)
 # Genero lista dei paths delle immagini valide
 if compute_dataset_paths:
-
-    # TEMP: AGGIUNGERE PER TEST!!!!!
-
     #Path dove vengono salvati i file
     datasetPaths_save = os.path.join(experimentPath, "dataset_paths.pkl")
     datasetPaths_val_save = os.path.join(experimentPath, "dataset_paths_val.pkl")
+    datasetPaths_test_save = os.path.join(experimentPath, "dataset_paths_test.pkl")
+
     print("\nCalcolo dataset paths\n")
     DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath, AN_list_train = DatasetPaths(patientFolder)
     DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val, AN_list_val = DatasetPaths(patientFolder_val)
+    DSinputPath_test, DStargetPath_test, DSmaskPath_test, DSmaskRegPath_test, AN_list_test = DatasetPaths(patientFolder_test)
+
     # Salva path delle immagini dei pazienti di training
     with open(datasetPaths_save, "wb") as f:
         pickle.dump((DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath, AN_list_train),f)
+
     # Salva path delle immagini dei pazienti di validation
     with open(datasetPaths_val_save, "wb") as f:
         pickle.dump((DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val, AN_list_val),f)
+
+    # Salva path delle immagini dei pazienti di test
+    with open(datasetPaths_test_save, "wb") as f:
+        pickle.dump((DSinputPath_test, DStargetPath_test, DSmaskPath_test, DSmaskRegPath_test, AN_list_test),f)
+
 # Carico lista dei paths delle immagini valide
 else:
     # Path dei file da caricare, che sono situati nella cartella data
     datasetPaths_load = os.path.join(data_dir, "dataset_paths.pkl")
     datasetPaths_val_load = os.path.join(data_dir, "dataset_paths_val.pkl")
+    datasetPaths_test_load = os.path.join(data_dir, "dataset_paths_test.pkl")
+
     # Se i file non esistono ottengo errore specifico
-    if not os.path.exists(datasetPaths_load) or not os.path.exists(datasetPaths_val_load):
-        raise FileNotFoundError(f"File dataset paths non trovati: \n{datasetPaths_load}\n{datasetPaths_val_load}\nEsegui prima con compute_dataset_paths = True")
+    if not os.path.exists(datasetPaths_load) or not os.path.exists(datasetPaths_val_load) or not os.path.exists(datasetPaths_test_load):
+        raise FileNotFoundError(f"File dataset paths non trovati: \n{datasetPaths_load}\n{datasetPaths_val_load}\n{datasetPaths_test_load}\nEsegui prima con compute_dataset_paths = True")
     print("\nCaricamento dataset paths\n")
+
     # Carico i path dei pazienti di training
     with open(datasetPaths_load, "rb") as f:
         DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath, AN_list_train = pickle.load(f)
+
     # Carico i path dei pazienti di validation
     with open(datasetPaths_val_load, "rb") as f:
         DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val, AN_list_val = pickle.load(f)
+    
+    # Carico i path dei pazienti di test
+    with open(datasetPaths_test_load, "rb") as f:
+        DSinputPath_test, DStargetPath_test, DSmaskPath_test, DSmaskRegPath_test, AN_list_test = pickle.load(f)
 
 
 # Gestione dei parametri dei pazienti
 if normalizeByPatient:
-
-    # TEMP: AGGIUNGERE PER TEST!!!!!
 
     # Calcolo e salvo su file i parametri dei pazienti
     if compute_patient_parameters:
@@ -286,18 +302,22 @@ if normalizeByPatient:
         patientParametersPath_val = os.path.join(experimentPath, "patientsParameters_val.pkl")
         df_val.to_pickle(patientParametersPath_val)
 
+        print('\nCalcolo parametri pazienti Test\n')
+        df_val = patientsParameters(DSinputPath_test, DStargetPath_test, DSmaskPath_test, DSmaskRegPath_test, AN_list_test)
+        patientParametersPath_test = os.path.join(experimentPath, "patientsParameters_test.pkl")
+        df_val.to_pickle(patientParametersPath_test)
+
     # Carico parametri pazienti invece di calcolarli
     else:
 
         # Path dei file da caricare, che sono situati nella cartella data
         patientParametersPath = os.path.join(data_dir, "patientsParameters.pkl")
         patientParametersPath_val = os.path.join(data_dir, "patientsParameters_val.pkl")
+        patientParametersPath_test = os.path.join(data_dir, "patientsParameters_test.pkl")
 
         # Se i file non esistono ottengo errore specifico
-        if not os.path.exists(patientParametersPath) or not os.path.exists(patientParametersPath_val):
-            raise FileNotFoundError(f"File dei parametri pazienti non trovati \n{patientParametersPath}\n{patientParametersPath_val}\nEsegui prima con compute_patient_stats = True")
-
-
+        if not os.path.exists(patientParametersPath) or not os.path.exists(patientParametersPath_val) or not os.path.exists(patientParametersPath_test):
+            raise FileNotFoundError(f"File dei parametri pazienti non trovati \n{patientParametersPath}\n{patientParametersPath_val}\n{patientParametersPath_test}\nEsegui prima con compute_patient_stats = True")
 
 
 #%% GENERATOR creation
@@ -535,9 +555,6 @@ if test:
 
 # TEMP: MODIFICARE APPENA FANNO IN CIMA PER TEST
 if test:
-    patientFolder_test = Path(r"/mnt/raid/work/data/DECT_data/validation")
-    DSinputPath_test, DStargetPath_test, DSmaskPath_test, DSmaskRegPath_test, AN_list_test = DatasetPaths(patientFolder_test)   
-    patientParametersPath_test = patientParametersPath_val
     
     # Definizione della "firma" dell'output del generatore
     output_signature = (
@@ -564,12 +581,11 @@ if test:
     else:
         os.mkdir(os.path.join(plotPath, "2"))
     
-    # Lista TEMP dei pazienti di test utilizzati
-    paz_path = ["/mnt/raid/work/data/DECT_data/validation/AN20645974",
-                "/mnt/raid/work/data/DECT_data/validation/AN21017669"]
-    
     # Carico dataset con parametri dei pazienti di test
     df = pd.read_pickle(patientParametersPath_test)
+
+    # Lista dei pazienti di test utilizzati
+    paz_path = df.get("AN").values.tolist()
 
     # Definizione parametri per tipo di normalizzazione
     param_norm = {
@@ -578,15 +594,15 @@ if test:
     }
 
     # Controllo se la normalizzazione è già presente
-    if normalizationFunction not in param_norm:
-        raise ValueError(f"Normalizzazione non supportata: {normalizationFunction}")
+    if normalizationFunction[0] not in param_norm:
+        raise ValueError(f"Normalizzazione non supportata: {normalizationFunction[0]}")
 
     # Dict con struttura uguale a quella della normalizzazione
-    results = {param: [] for param in param_norm[normalizationFunction]}
+    results = {param: [] for param in param_norm[normalizationFunction[0]]}
 
     # Salvo parametri necessari ad invertire la normalizzazione
     for paz in paz_path:
-        for param in param_norm[normalizationFunction]:
+        for param in param_norm[normalizationFunction[0]]:
             value = GetPatientParameters(paz, param, df)
             results[param].append(value)
 
@@ -609,8 +625,8 @@ if test:
                 # TEST: controllare se dopo denormalizzazione tornano i valori del file .npy
 
                 # CONTROLLARE COME DENORMALIZZARE OUTPUT (MEGLIO INPUT DATO CHE TEORICAMENTE TARGET NON LO ABBIAMO????)
-                inp_scale, inp_shift = get_scale_shift(results, normalizationFunction, 'input', i)
-                tar_scale, tar_shift = get_scale_shift(results, normalizationFunction, 'target', i)
+                inp_scale, inp_shift = get_scale_shift(results, normalizationFunction[0], 'input', i)
+                tar_scale, tar_shift = get_scale_shift(results, normalizationFunction[0], 'target', i)
 
                 # Denormalizzo input, target e output (OUTPUT NORMALIZZATO CON DATI TARGET)
                 inp_denorm  = inp_ii * inp_scale + inp_shift
