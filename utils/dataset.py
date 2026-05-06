@@ -63,6 +63,7 @@ def patientsParameters(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath, AN_
 
         # SISTEMO PUNTI ANOMALI < 0
         inputCT = np.array(inputCT)
+
         # ATTENSIONE FORSE PROBLEMA DA CONVERSIONE IN np.array !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         inputCT[inputCT < 0] = 0
 
@@ -140,14 +141,11 @@ def DatasetPaths(patientFolder):
         TUE_files = os.listdir(folder_TUE) #sarebbe la GT
         TUE_files = np.array(TUE_files)
         
-        
         image = TUE_files[0] #any image
         imagePath = os.path.join(folder_TUE, image)
         spacing_TUE = GetSpacing(imagePath)
         spacing_TUE = float(spacing_TUE.strip("'"))
-
-        #print(spacing_TUE)
-        
+   
         image = os.listdir(os.path.join(patientPath, 'VUE'))[0] #any image
         imagePath = os.path.join(os.path.join(patientPath, 'VUE'), image)
         spacing_VUE = GetSpacing(imagePath)
@@ -155,6 +153,7 @@ def DatasetPaths(patientFolder):
         
         print('VUE:', spacing_VUE, 'TUE:', spacing_TUE)
         
+        # Controllo spacing e salta il paziente se non è corretto
         if spacing_TUE != 2.5:
             print('Spacing not matching... skipped\n')
             #check rounding error

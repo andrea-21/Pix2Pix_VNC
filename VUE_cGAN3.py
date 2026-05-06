@@ -88,7 +88,7 @@ from utils.train import *
 #network parameters
 
 # DA PROVARE A LANCIARE CON 8
-batch_size = 32
+batch_size = 8
 # con 32 sono 409 (10 circa a epoca)
 # con 4 sono 3273 (circa) (15 circa a epoca)
 
@@ -126,8 +126,8 @@ plot = False
 statistics = False
 #########################
 
-epochs = 2
-_lambda = 700
+epochs = 100
+_lambda = 100
 
 #########################
 ####### AUTO BOOL #######
@@ -403,6 +403,16 @@ if train:
         "disc_fake": []
     }
 
+    f1_score_metrics = {
+        "f1_gen": tf.keras.metrics.F1Score(average = "micro", threshold=0.5),
+        "f1_real": tf.keras.metrics.F1Score(average = "micro", threshold=0.5)
+    }
+
+    f1_score_epochs = {
+        "f1_gen": [],
+        "f1_real": []
+    }
+
     ## VALIDATION SET
     print('\nLoading Validation Dataset: \n')
 
@@ -439,13 +449,16 @@ if train:
           losses_metrics[key].reset_state()
 
         # Training vero e proprio della singola epoca
-        losses_history, losses_metrics = fit(train_dataset, val_dataset, _lambda, 
+        losses_history, losses_metrics, f1_score_metrics = fit(train_dataset, val_dataset, _lambda, 
                                              generator, discriminator, generator_optimizer, discriminator_optimizer, 
-                                             losses_history, losses_metrics)
+                                             losses_history, losses_metrics, f1_score_metrics)
 
         # Ottengo valore medio epoca
         for key, metric in losses_metrics.items():
           losses_history_epochs[key].append(metric.result().numpy())
+
+        for key, metric in f1_score_metrics.items():
+          f1_score_epochs[key].append(metric.results().numpy())
 
         # Salvo modello ogni 15 epoche
         if epoch % 15 == 0:
@@ -466,6 +479,11 @@ if train:
         for k, v in losses_history_epochs.items()
     }
 
+    f1_score_epochs_serializable = {
+        k: [float(v_i) for v_i in v]
+        for k, v in f1_score_epochs.items()
+    }
+
     # Salvo storico delle loss di ogni batch del training
     # Salvataggio usando json per leggibilita' migliore rispetto ad usare numpi.save()
     with open(os.path.join(experimentPath, "losses_batch.json"), "w") as f:
@@ -474,6 +492,10 @@ if train:
     # Salvo storico delle loss medie di ogni epoca del training
     with open(os.path.join(experimentPath, "losses_epochs.json"), "w") as f:
         json.dump(losses_history_epochs_serializable, f)
+
+    # Salvo storico delle f1_score di ogni epoca del training
+    with open(os.path.join(experimentPath, "f1_scores.json"), "w") as f:
+        json.dump(f1_score_epochs_serializable, f)
 
     # GENERATOR tutte
     save_loss_plot(
@@ -528,6 +550,15 @@ if train:
         "gen_l1_lambda_gan_losses.png",
         log_dir,
         _lambda = _lambda
+    )
+
+    # Andamento f1_score nel training
+    save_loss_plot(
+        f1_score_epochs,
+        ["f1_gen", "f1_real"],
+        "F1-score generated and real images",
+        "f1_scores.png",
+        log_dir
     )
 
     # Salvo file con tempo di esecuzione totale del training

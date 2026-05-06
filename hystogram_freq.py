@@ -141,16 +141,16 @@ bins = 100
 
 plt.hist(
     reg_values,
-    bins=bins,
-    alpha=0.5,
+    bins=1000,
+    range=(-100,2000),
     density=True,
     label="registration"
 )
 
 plt.hist(
     tue_values,
-    bins=bins,
-    alpha=0.5,
+    bins=1000,
+    range=(-100,2000),
     density=True,
     label="TUE"
 )

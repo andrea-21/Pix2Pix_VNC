@@ -33,13 +33,18 @@ def train_step(input_image, target, _lambda, generator, discriminator, generator
   
   discriminator_optimizer.apply_gradients(zip(discriminator_gradients,
                                               discriminator.trainable_variables))
-  return gen_total_loss, gen_gan_loss, gen_l1_loss, disc_total_loss, disc_real_loss, disc_generated_loss
+  
+  # Trasfromazione output modello in probabilità
+  probs_gen = tf.sigmoid(disc_generated_output)
+  probs_real = tf.sigmoid(disc_real_output)
+
+  return gen_total_loss, gen_gan_loss, gen_l1_loss, disc_total_loss, disc_real_loss, disc_generated_loss, probs_gen, probs_real
 
 
 
 # train_ds è il full dataset
 #rifare con epoche e batch 
-def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics):
+def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics):
     example_input, example_target = next(iter(val_ds.take(1)))
     start = time.time()
 
@@ -62,7 +67,7 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
 
       gen_total_loss, gen_gan_loss, gen_l1_loss, \
       disc_total_loss,  disc_real_loss, \
-      disc_generated_loss = train_step(input_image, target, _lambda, generator, discriminator, 
+      disc_generated_loss, probs_gen, probs_real = train_step(input_image, target, _lambda, generator, discriminator, 
                                          generator_optimizer, discriminator_optimizer)
       
       # Appende loss al vettore delle loss_history       
@@ -75,10 +80,16 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
           "disc_real": disc_real_loss,
           "disc_fake": disc_generated_loss
       }
+
       
       for key, value in losses.items():
           losses_history[key].append(value)
           losses_metrics[key].update_state(value)
+
+      # Appendo i valori delle f1_score su immagini reali e su immagini generate
+      f1_score_metrics["f1_gen"].update_state(probs_gen, tf.zeros_like(probs_gen))
+      f1_score_metrics["f1_real"].update_state(probs_real, tf.ones_like(probs_real))
+
 
       # Training step
       if (step+1) % 15 == 0:
@@ -86,7 +97,7 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
     train_time = time.time()-start
     print(f'Time taken for last batch group: {train_time:.2f} sec\n')
     
-    return losses_history, losses_metrics
+    return losses_history, losses_metrics, f1_score_metrics
 
 
         
