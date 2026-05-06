@@ -206,8 +206,8 @@ def sort_path_key(path):
     return (head_comp, -num)
 
 
-# DEBUG per testare ordinamento
-'''paths = ['/mnt/raid/work/data/DECT_data/train/AN20580638/registration/AN20580638_registered_101.750.npy', #3
+'''# DEBUG per testare ordinamento
+paths = ['/mnt/raid/work/data/DECT_data/train/AN20580638/registration/AN20580638_registered_101.750.npy', #3
          '/mnt/raid/work/data/DECT_data/train/AN20580638/registration/AN20580638_registered_-150.750.npy', #4
          '/mnt/raid/work/data/DECT_data/train/AN20580638/registration/AN20580638_registered_2.750.npy', #2
          '/mnt/raid/work/data/DECT_data/train/AN20580638/registration/AN20580638_registered_-10.750.npy', #5
