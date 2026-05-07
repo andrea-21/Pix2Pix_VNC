@@ -57,7 +57,7 @@ if server:
     GPUs_memory = get_gpu_memory()
    
    #USARE 22 per batch da 8
-    memory_limit = 2*1024
+    memory_limit = 22*1024
     # lista dell'indice della GPU con memoria libera maggiore del valore richiesto
     GPU_index = [i for i, v in enumerate(GPUs_memory) if v > memory_limit]
     # prendo il valore scalare da dentro la lista
@@ -91,6 +91,7 @@ from utils.train import *
 batch_size = 8
 # con 32 sono 409 (10 circa a epoca)
 # con 4 sono 3273 (circa) (15 circa a epoca)
+# con 8 sono 1637 (0.7s a batch/10.3s per 15 batch) (19 minuti per epoca)
 
 # Scelta se riottenre i path delle immagini valide
 compute_dataset_paths = False 
@@ -107,7 +108,7 @@ stride = 1
 #########################
 ####### TRAINING ########
 #########################
-train = False
+train = True
 #######################
 
 
@@ -320,6 +321,30 @@ if normalizeByPatient:
             raise FileNotFoundError(f"File dei parametri pazienti non trovati \n{patientParametersPath}\n{patientParametersPath_val}\n{patientParametersPath_test}\nEsegui prima con compute_patient_stats = True")
 
 
+# Logging errori 
+import logging
+import sys
+
+logging.basicConfig(
+    filename=os.path.join(experimentPath, "crash.log"),
+    level=logging.ERROR,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logging.error(
+        "Eccezione non gestita",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
+
+sys.excepthook = handle_exception
+
+
+
 #%% GENERATOR creation
 
 generator = Generator(n_canali=n_canali)
@@ -433,7 +458,7 @@ if train:
     val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
     
     print('\nLoading Train Dataset\n')
-
+    #30GB di memoria
     train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     # DEBUG sul datasetGenerator
@@ -458,7 +483,7 @@ if train:
           losses_history_epochs[key].append(metric.result().numpy())
 
         for key, metric in f1_score_metrics.items():
-          f1_score_epochs[key].append(metric.results().numpy())
+          f1_score_epochs[key].append(metric.result().numpy())
 
         # Salvo modello ogni 15 epoche
         if epoch % 15 == 0:

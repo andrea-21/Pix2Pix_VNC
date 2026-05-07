@@ -87,6 +87,9 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
           losses_metrics[key].update_state(value)
 
       # Appendo i valori delle f1_score su immagini reali e su immagini generate
+      probs_gen = tf.reshape(probs_gen, [probs_gen.shape[0], -1])
+      probs_real = tf.reshape(probs_real, [probs_real.shape[0], -1])
+
       f1_score_metrics["f1_gen"].update_state(probs_gen, tf.zeros_like(probs_gen))
       f1_score_metrics["f1_real"].update_state(probs_real, tf.ones_like(probs_real))
 
