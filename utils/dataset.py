@@ -444,10 +444,6 @@ def DatasetGenerator_test(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
         
         for inputPath, targetPath, maskTargetPath, maskInputPath in zip(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath):
 
-            # Carico mashere per input e traget
-            mask_input = np.load(maskInputPath)
-            mask_target = np.load(maskTargetPath)
-
             # USO float32???
             #yield input_img.astype(np.float32), target_img.astype(np.float32)
             yield inputPath, targetPath

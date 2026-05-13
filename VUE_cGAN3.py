@@ -426,7 +426,7 @@ if train:
 
     ## VALIDATION SET
     print('\nLoading Validation Dataset: \n')
-
+    '''
     args_val = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
             normalizeByPatient, patientParametersPath_val, normalizationFunction, n_canali, stride)
     
@@ -445,14 +445,14 @@ if train:
     
     print('\nLoading Train Dataset\n')
     #30GB di memoria
-    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)'''
 
     # DEBUG sul datasetGenerator
     '''a,b = DatasetGenerator(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
                  normalizeByPatient, patientParametersPath, normalizationFunction, n_canali, stride)'''
     
     # DEBUG SHUFFLE
-    '''args = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
+    args_val = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
             normalizeByPatient, patientParametersPath_val, normalizationFunction, n_canali, stride)
     
     output_signature = (
@@ -462,20 +462,20 @@ if train:
     
     dataset_val = tf.data.Dataset.from_generator(DatasetGenerator_test,
                                                 output_signature=output_signature,
-                                                args = args).cache()
+                                                args = args_val).cache()
     
-    args = (DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
+    args_train = (DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
                  normalizeByPatient, patientParametersPath, normalizationFunction, n_canali, stride)
 
     train_dataset = tf.data.Dataset.from_generator(DatasetGenerator_test,
                                                     output_signature=output_signature,
-                                                    args = args).cache()
+                                                    args = args_train).cache()
     
     val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
     
     print('\nLoading Train Dataset\n')
     #30GB di memoria
-    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)'''
+    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)
     
     
     for epoch in range(epochs):
@@ -487,7 +487,7 @@ if train:
           losses_metrics[key].reset_state()
 
         # Training vero e proprio della singola epoca
-        losses_history, losses_metrics, f1_score_metrics = fit(train_dataset, val_dataset, _lambda, 
+        losses_history, losses_metrics, f1_score_metrics = fit_test(train_dataset, val_dataset, _lambda, 
                                              generator, discriminator, generator_optimizer, discriminator_optimizer, 
                                              losses_history, losses_metrics, f1_score_metrics)
 
@@ -613,7 +613,10 @@ if train:
 if test:
 
     # Carico il modello salvato nella cartella dell'esperimento indicato sopra
-    model = checkpoint.restore(tf.train.latest_checkpoint(experimentPath_load))
+    if exp == "experiment_27-04-2026--14-18":
+        model = checkpoint.restore(tf.train.latest_checkpoint(experimentPath_load)) #Versione per esperimenti vecchi
+    else: 
+        model = checkpoint.restore(tf.train.latest_checkpoint(os.path.join(experimentPath_load, "checkpoints")))
 
     # Salvo storico delle loss di batch di ogni epoca del training
     with open(os.path.join(experimentPath_load, "losses_batch.json"), "r") as f:
