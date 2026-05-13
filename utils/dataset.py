@@ -240,7 +240,7 @@ def DatasetGenerator(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
         
         for inputPath, targetPath, maskTargetPath, maskInputPath in zip(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath):
 
-            # Carico mashere per input e traget
+            # Carico mashere per input e traget (target è TUE, quindi DSmaskPath è quella giusta)
             mask_input = np.load(maskInputPath)
             mask_target = np.load(maskTargetPath)
 
@@ -411,3 +411,67 @@ def DatasetGenerator(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
     print('Dataset Generator end\n')
 
     gc.collect()'''
+
+
+# DEBUG shuffle tf
+def DatasetGenerator_test(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
+                     normalizeByPatient, patientParametersPath, normalizationFunction, n_canali, stride):
+    
+    print('\n')
+    print('versione test generator')
+    print('\n')
+    if n_canali == 1:
+        print('Versione standard Dataset Generator start\n')
+    else:
+        print("Versione 2.5D Dataset Generator start\n")
+
+
+    if normalizeByPatient == True:
+        df = pd.read_pickle(patientParametersPath.decode('utf-8'))
+    
+    #implicit conversion! list > np, str > bytes!
+    DSinputPath = [x.decode('utf-8') for x in DSinputPath]
+    DStargetPath = [x.decode('utf-8') for x in DStargetPath]
+    DSmaskPath = [x.decode('utf-8') for x in DSmaskPath]
+    DSmaskRegPath = [x.decode('utf-8') for x in DSmaskRegPath]
+
+    normalizationFunction = [x.decode('utf-8') for x in normalizationFunction]
+
+    offset = n_canali // 2
+    
+    # Generatore nel caso 2D classico
+    if n_canali == 1:
+        
+        for inputPath, targetPath, maskTargetPath, maskInputPath in zip(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath):
+
+            # Carico mashere per input e traget
+            mask_input = np.load(maskInputPath)
+            mask_target = np.load(maskTargetPath)
+
+            # USO float32???
+            #yield input_img.astype(np.float32), target_img.astype(np.float32)
+            yield inputPath, targetPath
+
+        # Caso generatore per 2.5D
+    else:
+        # Lista slice ordinate
+        slices_input = sorted(DSinputPath, key=sort_path_key)
+        slices_target = sorted(DStargetPath, key=sort_path_key)
+        slices_mask_target = sorted(DSmaskRegPath, key=sort_path_key)
+        slices_mask_input = sorted(DSmaskPath, key=sort_path_key)
+
+        #print(slices_input)
+
+        gruppi_input = crea_gruppi_path(slices_input, n_canali, stride)
+        gruppi_target = crea_gruppi_path(slices_target, n_canali, stride)
+        gruppi_mask_input = crea_gruppi_path(slices_mask_input, n_canali, stride)
+        gruppi_mask_target = crea_gruppi_path(slices_mask_target, n_canali, stride)
+
+        for gruppo_input, gruppo_target, gruppo_mask_input, gruppo_mask_target in zip(gruppi_input, gruppi_target, gruppi_mask_input, gruppi_mask_target):
+
+
+            # USO float32???
+            #yield CT_input.astype(np.float32), CT_target.astype(np.float32)
+            yield gruppo_input, gruppo_target
+
+    gc.collect()

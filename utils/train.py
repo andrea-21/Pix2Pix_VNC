@@ -67,8 +67,7 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
 
       gen_total_loss, gen_gan_loss, gen_l1_loss, \
       disc_total_loss,  disc_real_loss, \
-      disc_generated_loss, probs_gen, probs_real = train_step(input_image, target, _lambda, generator, discriminator, 
-                                         generator_optimizer, discriminator_optimizer)
+      disc_generated_loss, probs_gen, probs_real = train_step(input_image, target, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer)
       
       # Appende loss al vettore delle loss_history       
       # Appende loss alla metrica per il calcolo della loss dell'epoca attuale
@@ -90,9 +89,8 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
       probs_gen = tf.reshape(probs_gen, [probs_gen.shape[0], -1])
       probs_real = tf.reshape(probs_real, [probs_real.shape[0], -1])
 
-      f1_score_metrics["f1_gen"].update_state(probs_gen, tf.zeros_like(probs_gen))
-      f1_score_metrics["f1_real"].update_state(probs_real, tf.ones_like(probs_real))
-
+      f1_score_metrics["f1_gen"].update_state(tf.zeros_like(probs_gen), probs_gen)
+      f1_score_metrics["f1_real"].update_state(tf.ones_like(probs_real), probs_real)
 
       # Training step
       if (step+1) % 15 == 0:
@@ -103,6 +101,26 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
     return losses_history, losses_metrics, f1_score_metrics
 
 
-        
+def fit_test(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics):
+    example_input, example_target = next(iter(val_ds.take(1)))
+    start = time.time()
+
+    # Alla fine genera errore "W tensorflow/core/framework/local_rendezvous.cc:404] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence" ma non dovrebbe essere un bug, ma solo la fine del dataset
+    for step, (input_image, target) in enumerate(train_ds):
+  
+      print(f"Batch: {step}")
+      print("INPUT IMAGES:\n")
+      for input_im in enumerate(input_image):
+         print(input_im)
+      
+      print("TARGET IMAGES:\n")
+      for target_im in enumerate(target):
+         print(target_im)
+
+
+    train_time = time.time()-start
+    print(f'Time taken for last batch group: {train_time:.2f} sec\n')
+    
+    return None, None, None
 
 

@@ -110,7 +110,7 @@ stride = 1
 #########################
 ####### TRAINING ########
 #########################
-train = False
+train = True
 #######################
 
 
@@ -159,36 +159,37 @@ if not os.path.exists(experimentPath):
 
 
 # Salvo "immagine" del progetto usata per fare l'esperimento
-source_root = os.path.dirname(os.path.realpath(__file__))
-destination_root = os.path.join(experimentPath, "project")
+if train:
+    source_root = os.path.dirname(os.path.realpath(__file__))
+    destination_root = os.path.join(experimentPath, "project")
 
-for dirpath, dirnames, filenames in os.walk(source_root):
+    for dirpath, dirnames, filenames in os.walk(source_root):
 
-    # Salta cartella experiments
-    if "experiments" in dirnames:
-        dirnames.remove("experiments")
+        # Salta cartella experiments
+        if "experiments" in dirnames:
+            dirnames.remove("experiments")
 
-    # calcola il path relativo da "project"
-    relative_path = os.path.relpath(dirpath, source_root)
+        # calcola il path relativo da "project"
+        relative_path = os.path.relpath(dirpath, source_root)
 
-    # costruisce la directory di destinazione
-    target_dir = os.path.join(destination_root, relative_path)
-    os.makedirs(target_dir, exist_ok=True)
+        # costruisce la directory di destinazione
+        target_dir = os.path.join(destination_root, relative_path)
+        os.makedirs(target_dir, exist_ok=True)
 
-    for file in filenames:
+        for file in filenames:
 
-        source_path = os.path.join(dirpath, file)
+            source_path = os.path.join(dirpath, file)
 
-        is_py = file.endswith(".py")
-        is_data_pkl = (
-            "data" in dirpath.split(os.sep) and file.endswith(".pkl")
-        )
+            is_py = file.endswith(".py")
+            is_data_pkl = (
+                "data" in dirpath.split(os.sep) and file.endswith(".pkl")
+            )
 
-        if is_py or is_data_pkl:
-            destination_path = os.path.join(target_dir, file)
-            shutil.copy2(source_path, destination_path)
+            if is_py or is_data_pkl:
+                destination_path = os.path.join(target_dir, file)
+                shutil.copy2(source_path, destination_path)
 
-print("\nCopiato tutto il modello in ", experimentPath, "\n")
+    print("\nCopied all project folder in ", experimentPath, "\n")
         
 # Train path
 '''patientFolder = Path(r"/home/rossetti/DECT_data/train")
@@ -307,11 +308,24 @@ if normalizeByPatient:
 
 
 # Logging su file di errori fatali del codice
+import logging
+import sys
+
 logging.basicConfig(
     filename=os.path.join(experimentPath, "crash.log"),
     level=logging.ERROR,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logging.error(
+        "Eccezione non gestita",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
 
 sys.excepthook = handle_exception
 
@@ -325,15 +339,14 @@ generator = Generator(n_canali=n_canali)
 # experimentPath indica il path dei checkpoints che vogliamo usare
 if test:
     # Versione batch 32 80 epoche lambda 700
-    exp = "experiment_27-04-2026--14-18" #Codice vecchio
-    #exp = "experiment_11-05-2026--18-26" #Codice con ciclo train vecchio
+    #exp = "experiment_27-04-2026--14-18" #Codice vecchio
     #exp = "experiment_09-05-2026--12-35"
     # Versione batch 8 100 epoche lambda 100
     #exp = "experiment_07-05-2026--16-45"
     # Versione batch 8 100 epoche lambda 700
-    #exp = "experiment_08-05-2026--12-59"
+    exp = "experiment_08-05-2026--12-59"
     checkpoint_dir = os.path.dirname(os.path.realpath(__file__))
-    experimentPath_load = os.path.join(checkpoint_dir,"experiments", exp)
+    experimentPath = os.path.join(checkpoint_dir,"experiments", exp)
 
 #%% Optimizers
 generator_optimizer = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
@@ -374,6 +387,11 @@ if train:
                 tf.TensorSpec(shape=(512, 512, n_canali), dtype=tf.float32),  # Input images group
                 tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32)   # Label
             )
+        
+
+    #DEBUG
+    output_signature = (tf.TensorSpec(shape=(), dtype=tf.string),
+                        tf.TensorSpec(shape=(), dtype=tf.string),)
     
     losses = {
           "gen_total",
@@ -424,28 +442,16 @@ if train:
         "f1_real": []
     }
 
-    ## VALIDATION SET
     print('\nLoading Validation Dataset: \n')
 
-    args_val = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
+    args = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
             normalizeByPatient, patientParametersPath_val, normalizationFunction, n_canali, stride)
     
-    dataset_val = tf.data.Dataset.from_generator(DatasetGenerator,
+    dataset_val = tf.data.Dataset.from_generator(DatasetGenerator_test,
                                              output_signature=output_signature,
-                                             args = args_val).cache()
-    
-    args_train = (DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
-                 normalizeByPatient, patientParametersPath, normalizationFunction, n_canali, stride)
+                                             args = args).cache()
 
-    train_dataset = tf.data.Dataset.from_generator(DatasetGenerator,
-                                                 output_signature=output_signature,
-                                                 args = args_train).cache()
-    
-    val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
-    
-    print('\nLoading Train Dataset\n')
     #30GB di memoria
-    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     # DEBUG sul datasetGenerator
     '''a,b = DatasetGenerator(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
@@ -481,13 +487,34 @@ if train:
     for epoch in range(epochs):
 
         print('\nEpoch ', epoch, '/', epochs,' \n')
+
+        # TRAINING SET
+        print('\nLoading Train Dataset\n')
+
+        #shuffle in place
+        rng_input.shuffle(DSinputPath)
+        rng_target.shuffle(DStargetPath)
+        rng_mask.shuffle(DSmaskPath)
+        rng_mask.shuffle(DSmaskRegPath)
+
+        args = (DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
+                 normalizeByPatient, patientParametersPath, normalizationFunction, n_canali, stride)
+
+        train_dataset = tf.data.Dataset.from_generator(DatasetGenerator_test,
+                                                 output_signature=output_signature,
+                                                 args = args).cache()
+
+        #batch the dataset
+        train_dataset = train_dataset.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+        val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+      
       
         # Reset metriche per epoca attuale
         for key in losses:
           losses_metrics[key].reset_state()
 
         # Training vero e proprio della singola epoca
-        losses_history, losses_metrics, f1_score_metrics = fit(train_dataset, val_dataset, _lambda, 
+        losses_history, losses_metrics, f1_score_metrics = fit_test(train_dataset, val_dataset, _lambda, 
                                              generator, discriminator, generator_optimizer, discriminator_optimizer, 
                                              losses_history, losses_metrics, f1_score_metrics)
 
@@ -607,20 +634,19 @@ if train:
     print(f'Tempo esecuzione totale programma: {time_program:.2f} sec\n')
     with open(os.path.join(experimentPath,"tempo_esecuzione.txt"), "w") as text_file:
         text_file.write("Tempo esecuzione totale programma: %s" % time_program)
-
 #%% Loading Model    
 
 if test:
 
     # Carico il modello salvato nella cartella dell'esperimento indicato sopra
-    model = checkpoint.restore(tf.train.latest_checkpoint(experimentPath_load))
+    model = checkpoint.restore(tf.train.latest_checkpoint(experimentPath))
 
     # Salvo storico delle loss di batch di ogni epoca del training
-    with open(os.path.join(experimentPath_load, "losses_batch.json"), "r") as f:
+    with open(os.path.join(experimentPath, "losses_batch.json"), "r") as f:
         losses_history = json.load(f)
 
     # Salvo storico delle loss medie di ogni epoca del training
-    with open(os.path.join(experimentPath_load, "losses_epochs.json"), "r") as f:
+    with open(os.path.join(experimentPath, "losses_epochs.json"), "r") as f:
         losses_history_epochs = json.load(f)
 
 
@@ -653,9 +679,6 @@ if test:
         plotPath = plotPath + "2"
         
     os.mkdir(plotPath)
-
-    with open(os.path.join(experimentPath,"modello_usato.txt"), "w") as text_file:
-        text_file.write("Esperimento dal quale e' stato preso il modello: %s" % exp)
     
     # Carico dataset con parametri dei pazienti di test
     df = pd.read_pickle(patientParametersPath_test)
@@ -689,7 +712,7 @@ if test:
         pred = generator(inp, training=False)
         for ii, (inp_i, tar_i) in enumerate(zip(inp, tar)):
             
-            if ii==28 or ii == 11:
+            if ii==2 or ii == 7:
                 #fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(10, 10), sharex=True, sharey=True)
                 #ax = axes.ravel()
                 
@@ -705,17 +728,17 @@ if test:
                 tar_scale, tar_shift = get_scale_shift(results, normalizationFunction[0], 'target', i)
 
                 # Denormalizzo input, target e output (OUTPUT NORMALIZZATO CON DATI TARGET)
-                inp_denorm  = inp_ii * inp_scale + inp_shift
-                tar_denorm  = tar_ii * tar_scale + tar_shift
-                pred_denorm = pred[ii] * tar_scale + tar_shift
+                inp_denorm  = inp_ii #* inp_scale + inp_shift
+                tar_denorm  = tar_ii #* tar_scale + tar_shift
+                pred_denorm = pred[ii] #* tar_scale + tar_shift
 
                 print(np.shape(inp_ii), np.shape(tar_ii), np.shape(pred[ii]))
 
                 # DA CAMBIARE CON MASCHERA TARGET (MEGLIO INPUT DATO CHE TEORICAMENTE TARGET NON LO ABBIAMO????)
-                pred_ = np.array(pred_denorm * np.where(inp_ii == 0, 0, 1))
+                #pred_ = np.array(pred_denorm * np.where(inp_ii == 0, 0, 1))
 
                 #TEST
-                #pred_=pred_denorm
+                pred_=pred_denorm
                 
 
                 '''# Serviti per grafici vecchi?

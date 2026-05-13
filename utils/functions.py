@@ -1,4 +1,6 @@
+import logging
 import re
+import sys
 
 import pandas as pd
 import numpy as np
@@ -246,3 +248,13 @@ def get_scale_shift(results, norm_type, kind, i, eps=1e-8):
         raise ValueError(f"Normalizzazione non supportata: {norm_type}")
     
     return scale, shift
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+
+    logging.error(
+        "Eccezione non gestita",
+        exc_info=(exc_type, exc_value, exc_traceback)
+    )
