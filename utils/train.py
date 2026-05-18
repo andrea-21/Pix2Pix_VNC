@@ -6,7 +6,7 @@ from plots.plots import *
 from models.generator import *
 from models.discriminator import *
 
-# allena su un batch singolo -> ciclo doppio se lo voglio usare in fit
+# allena su un batch singolo
 @tf.function
 def train_step(input_image, target, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer):
   with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:

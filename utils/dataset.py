@@ -16,6 +16,7 @@ def patientsParameters(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath, AN_
     to_remove = set()
 
     for AN in AN_Database:
+
         
         patientInputImgs = [s for s in DSinputPath if AN in s]
         patientTargetImgs = [s for s in DStargetPath if AN in s]
@@ -64,7 +65,7 @@ def patientsParameters(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath, AN_
         # SISTEMO PUNTI ANOMALI < 0
         inputCT = np.array(inputCT)
 
-        # ATTENSIONE FORSE PROBLEMA DA CONVERSIONE IN np.array !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # ATTENZIONE FORSE PROBLEMA DA CONVERSIONE IN np.array !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         inputCT[inputCT < 0] = 0
 
         patient_df = pd.DataFrame({
@@ -165,7 +166,11 @@ def DatasetPaths(patientFolder):
         #patient_pair = []
         
         for file in os.listdir(folder_reg):
-            AN = file.split("_registered_",1)[0] 
+            AN = file.split("_registered_",1)[0]
+
+            if AN == "AN21661133":
+                print("Trovato")
+
             z_string = file.split('_registered_',1)[1]
             z_VUE = z_string.replace('.npy', '')
             
@@ -196,6 +201,26 @@ def DatasetPaths(patientFolder):
 
             #input
             CT_inputPath = os.path.join(folder_reg, file)
+
+            # Carico immagine e maschera della registrazione
+            inputCT_mask = np.load(maskRegPath)
+            inputCT_single = np.load(CT_inputPath)
+
+            # Controllo presenza cluster di 0
+            discard_cluster = DiscardZerosImageCluster(inputCT_single, inputCT_mask)
+        
+            # Controllo percentuale zeri maschera
+            discard_mask = DiscardZerosMasks(inputCT_mask)
+            
+            # Almeno 1 tra le due opzioni basta per eliminare (non carico la sezione/maschera) 
+            if discard_cluster or discard_mask:
+                print("input_path:", CT_inputPath)
+                print("mask_path:", maskRegPath)
+                print("discard cluster: ", discard_cluster)
+                print("discard masks: ", discard_mask)
+                print("ELMINATED IMAGE:", os.path.basename(CT_inputPath))
+                print("\n")
+                continue
             
             
             DSinputPath.append(CT_inputPath)
@@ -421,9 +446,9 @@ def DatasetGenerator_test(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
     print('versione test generator')
     print('\n')
     if n_canali == 1:
-        print('Versione standard Dataset Generator start\n')
+        print('Versione test standard Dataset Generator start\n')
     else:
-        print("Versione 2.5D Dataset Generator start\n")
+        print("Versione test 2.5D Dataset Generator start\n")
 
 
     if normalizeByPatient == True:

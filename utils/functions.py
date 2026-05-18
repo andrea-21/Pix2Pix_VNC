@@ -109,7 +109,9 @@ def DiscardZerosImageCluster(image, mask, patch_size=10, var_threshold=1e-4, mea
 
 # Controllo percentuale zeri della maschera
 def DiscardZerosMasks(mask, max_perc_zero = 80):
-    w = np.where((mask == 1), 1, 0)
+
+    mask_int = mask.astype(np.float32)
+    w = np.where((mask_int == 1), 1, 0)
 
     tot = w.shape[0] * w.shape[1]
     perc = (tot - np.count_nonzero(w)) / tot
@@ -258,3 +260,10 @@ def handle_exception(exc_type, exc_value, exc_traceback):
         "Eccezione non gestita",
         exc_info=(exc_type, exc_value, exc_traceback)
     )
+
+def apply_window(image, window_center, window_width):
+    img_min = window_center - window_width / 2
+    img_max = window_center + window_width / 2
+    windowed = np.clip(image, img_min, img_max)
+    windowed = (windowed - img_min) / (img_max - img_min)  # Normalize to [0, 1]
+    return windowed

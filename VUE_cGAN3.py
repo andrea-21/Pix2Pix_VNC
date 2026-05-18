@@ -89,7 +89,7 @@ from utils.train import *
 #network parameters
 
 
-batch_size = 32
+batch_size = 8
 # con 32 sono 409 (10 circa a epoca)
 # con 4 sono 3273 (circa) (15 circa a epoca)
 # con 8 sono 1637 (0.7s a batch/10.3s per 15 batch) (19 minuti per epoca)
@@ -129,8 +129,8 @@ plot = False
 statistics = False
 #########################
 
-epochs = 80
-_lambda = 700
+epochs = 400
+_lambda = 100
 
 #########################
 ####### AUTO BOOL #######
@@ -325,13 +325,15 @@ generator = Generator(n_canali=n_canali)
 # experimentPath indica il path dei checkpoints che vogliamo usare
 if test:
     # Versione batch 32 80 epoche lambda 700
-    exp = "experiment_27-04-2026--14-18" #Codice vecchio
+    #exp = "experiment_27-04-2026--14-18" #Codice vecchio
     #exp = "experiment_11-05-2026--18-26" #Codice con ciclo train vecchio
     #exp = "experiment_09-05-2026--12-35"
-    # Versione batch 8 100 epoche lambda 100
-    #exp = "experiment_07-05-2026--16-45"
     # Versione batch 8 100 epoche lambda 700
     #exp = "experiment_08-05-2026--12-59"
+    # Versione batch 8 100 epoche lambda 100
+    #exp = "experiment_07-05-2026--16-45"
+    # Versione batch 8 400 epoche lambda 100
+    exp = "experiment_14-05-2026--19-42"
     checkpoint_dir = os.path.dirname(os.path.realpath(__file__))
     experimentPath_load = os.path.join(checkpoint_dir,"experiments", exp)
 
@@ -426,7 +428,7 @@ if train:
 
     ## VALIDATION SET
     print('\nLoading Validation Dataset: \n')
-    '''
+    
     args_val = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
             normalizeByPatient, patientParametersPath_val, normalizationFunction, n_canali, stride)
     
@@ -442,23 +444,19 @@ if train:
                                                  args = args_train).cache()
     
     val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
-    
-    print('\nLoading Train Dataset\n')
-    #30GB di memoria
-    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)'''
 
     # DEBUG sul datasetGenerator
     '''a,b = DatasetGenerator(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
                  normalizeByPatient, patientParametersPath, normalizationFunction, n_canali, stride)'''
     
     # DEBUG SHUFFLE
-    args_val = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
+    '''args_val = (DSinputPath_val, DStargetPath_val, DSmaskPath_val, DSmaskRegPath_val,
             normalizeByPatient, patientParametersPath_val, normalizationFunction, n_canali, stride)
     
     output_signature = (
     tf.TensorSpec(shape=(), dtype=tf.string),
     tf.TensorSpec(shape=(), dtype=tf.string),
-)
+    )
     
     dataset_val = tf.data.Dataset.from_generator(DatasetGenerator_test,
                                                 output_signature=output_signature,
@@ -471,7 +469,7 @@ if train:
                                                     output_signature=output_signature,
                                                     args = args_train).cache()
     
-    val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+    val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)'''
     
     print('\nLoading Train Dataset\n')
     #30GB di memoria
@@ -487,7 +485,7 @@ if train:
           losses_metrics[key].reset_state()
 
         # Training vero e proprio della singola epoca
-        losses_history, losses_metrics, f1_score_metrics = fit_test(train_dataset, val_dataset, _lambda, 
+        losses_history, losses_metrics, f1_score_metrics = fit(train_dataset, val_dataset, _lambda, 
                                              generator, discriminator, generator_optimizer, discriminator_optimizer, 
                                              losses_history, losses_metrics, f1_score_metrics)
 
@@ -631,12 +629,21 @@ if test:
 
 # TEMP: MODIFICARE APPENA FANNO IN CIMA PER TEST
 if test:
+
+    # Scelta batch_size per visualizzazione
+    batch_size = 32
     
     # Definizione della "firma" dell'output del generatore
     output_signature = (
         tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32),  # Input image
         tf.TensorSpec(shape=(512, 512, 1), dtype=tf.float32)   # Label
     )
+
+    '''# DEBUG Definizione della firma per test
+    output_signature = (
+    tf.TensorSpec(shape=(), dtype=tf.string),
+    tf.TensorSpec(shape=(), dtype=tf.string),
+    )'''
 
     # Definizione dataset di test
     args_test = (DSinputPath_test, DStargetPath_test, DSmaskPath_test, DSmaskRegPath_test,
@@ -664,7 +671,11 @@ if test:
     df = pd.read_pickle(patientParametersPath_test)
 
     # Lista dei pazienti di test utilizzati
+    #['AN21661133', 'AN21846709', 'AN21016322', 'AN21598082', 'AN21565406']
     paz_path = df.get("AN").values.tolist()
+
+
+    print("Pazienti usati nel test:\n", paz_path)
 
     # Definizione parametri per tipo di normalizzazione
     param_norm = {
@@ -685,14 +696,27 @@ if test:
             value = GetPatientParameters(paz, param, df)
             results[param].append(value)
 
+    
+
+    # DEBUG generazione immagini
+    '''for step, (input_image, target) in enumerate(test_dataset):
+  
+      print(f"Batch: {step}")
+      print("INPUT IMAGES:\n")
+      for input_im in enumerate(input_image):
+         print(input_im)
+      
+      print("TARGET IMAGES:\n")
+      for target_im in enumerate(target):
+         print(target_im)'''
 
     # Run the trained model on a few examples from the test set
     for i, (inp, tar) in enumerate(test_dataset.take(2)):
         #generate_images(generator, inp, tar, plot = True)
         pred = generator(inp, training=False)
         for ii, (inp_i, tar_i) in enumerate(zip(inp, tar)):
-            
-            if ii==28 or ii == 11:
+
+            if ii==11 or ii == 28:
                 #fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(10, 10), sharex=True, sharey=True)
                 #ax = axes.ravel()
                 
@@ -704,8 +728,8 @@ if test:
                 # TEST: controllare se dopo denormalizzazione tornano i valori del file .npy
 
                 # CONTROLLARE COME DENORMALIZZARE OUTPUT (MEGLIO INPUT DATO CHE TEORICAMENTE TARGET NON LO ABBIAMO????)
-                inp_scale, inp_shift = get_scale_shift(results, normalizationFunction[0], 'input', i)
-                tar_scale, tar_shift = get_scale_shift(results, normalizationFunction[0], 'target', i)
+                inp_scale, inp_shift = get_scale_shift(results, normalizationFunction[0], 'input', 0)
+                tar_scale, tar_shift = get_scale_shift(results, normalizationFunction[0], 'target', 0)
 
                 # Denormalizzo input, target e output (OUTPUT NORMALIZZATO CON DATI TARGET)
                 inp_denorm  = inp_ii * inp_scale + inp_shift
@@ -719,6 +743,17 @@ if test:
 
                 #TEST
                 #pred_=pred_denorm
+                
+                # DEBUG generazione immagini
+                #np.save(f"prova_pre_no_den_finestra_{i}.npy", tar_ii)
+                #np.save(f"prova_pre_finestra_{i}.npy", tar_denorm)
+
+                inp_window = apply_window(inp_denorm -1000, 40, 400)
+                tar_window = apply_window(tar_denorm - 1000, 40, 400)
+                pred_window = apply_window(pred_ - 1000, 40, 400)
+
+                # DEBUG generazione immagini
+                #np.save(f"prova_{i}.npy", tar_window)
                 
 
                 '''# Serviti per grafici vecchi?
@@ -752,6 +787,30 @@ if test:
                 plt.axis('off')
                 # Save the figure
                 save_path = os.path.join(plotPath, f"_out_image_{i}_{ii}.png")
+                plt.savefig(save_path, dpi=300)
+                print(f"Saved: {save_path}")
+
+                plt.figure()
+                plt.imshow(inp_window, cmap = 'gray')
+                plt.axis('off')
+                # Save the figure
+                save_path = os.path.join(plotPath, f"_inp_image_window_{i}_{ii}.png")
+                plt.savefig(save_path, dpi=300)
+                print(f"Saved: {save_path}")
+                
+                plt.figure()
+                plt.imshow(tar_window, cmap = 'gray')
+                plt.axis('off')
+                # Save the figure
+                save_path = os.path.join(plotPath, f"_tar_image_window_{i}_{ii}.png")
+                plt.savefig(save_path, dpi=300)
+                print(f"Saved: {save_path}")
+                
+                plt.figure()
+                plt.imshow(pred_window, cmap = 'gray')
+                plt.axis('off')
+                # Save the figure
+                save_path = os.path.join(plotPath, f"_out_image_window_{i}_{ii}.png")
                 plt.savefig(save_path, dpi=300)
                 print(f"Saved: {save_path}")
 
