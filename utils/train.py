@@ -48,7 +48,7 @@ def train_step(input_image, target, _lambda, generator, discriminator, generator
 
 # train_ds è il full dataset
 #rifare con epoche e batch 
-def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics, sigma):
+def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics, noise_scheduler, epoch):
     example_input, example_target = next(iter(val_ds.take(1)))
     start = time.time()
 
@@ -69,6 +69,9 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
          # Funzione da attivare se vogliamo esempi di generazione durante il training
          generate_images(generator, example_input, example_target)
          print(f"Batch: {step}")
+
+      # Rumore moltiplicato con input del discriminatore 
+      sigma =  noise_scheduler.generate_noise_map(input_image, epoch)
 
       gen_total_loss, gen_gan_loss, gen_l1_loss, \
       disc_total_loss,  disc_real_loss, \
@@ -106,7 +109,7 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
     return losses_history, losses_metrics, f1_score_metrics
 
 
-def fit_test(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics):
+def fit_test(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics, noise_scheduler, epoch):
     example_input, example_target = next(iter(val_ds.take(1)))
     start = time.time()
 

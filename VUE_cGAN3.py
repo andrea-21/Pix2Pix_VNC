@@ -110,7 +110,7 @@ stride = 1
 #########################
 ####### TRAINING ########
 #########################
-train = False
+train = True
 #######################
 
 
@@ -443,7 +443,7 @@ if train:
                                                  output_signature=output_signature,
                                                  args = args_train).cache()
     
-    val_dataset = dataset_val.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
+    val_dataset = dataset_val.batch(batch_size, drop_remainder=True).prefetch(buffer_size=tf.data.AUTOTUNE)
 
     # DEBUG sul datasetGenerator
     '''a,b = DatasetGenerator(DSinputPath, DStargetPath, DSmaskPath, DSmaskRegPath,
@@ -473,17 +473,14 @@ if train:
     
     print('\nLoading Train Dataset\n')
     #30GB di memoria
-    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
     
-    # Creazione gestore del rumore da applicare nel discriminatore
-    noise_scheduler = NoiseScheduler(initial_std=0.15, final_epoch=30)    
+    # Creazione gestore del rumore da applicare nel discriminatore (all'epoca 30 deve diventare 1)
+    noise_scheduler = NoiseScheduler(initial_noise=0.15, final_epoch=30, decay_type='linear')    
     
     for epoch in range(epochs):
 
         print('\nEpoch ', epoch, '/', epochs,' \n')
-
-        # Rumore moltiplicato con input del discriminatore (all'epoca 30 deve diventare 1)
-        sigma =  noise_scheduler.generate_noise_map(batch_size, epoch)
       
         # Reset metriche per epoca attuale
         for key in losses:
@@ -492,7 +489,7 @@ if train:
         # Training vero e proprio della singola epoca
         losses_history, losses_metrics, f1_score_metrics = fit(train_dataset, val_dataset, _lambda, 
                                              generator, discriminator, generator_optimizer, discriminator_optimizer, 
-                                             losses_history, losses_metrics, f1_score_metrics, sigma)
+                                             losses_history, losses_metrics, f1_score_metrics, noise_scheduler, epoch)
 
         # Ottengo valore medio epoca
         for key, metric in losses_metrics.items():
@@ -706,16 +703,7 @@ if test:
     if normalizationFunction[0] not in param_norm:
         raise ValueError(f"Normalizzazione non supportata: {normalizationFunction[0]}")
 
-    # Dict con struttura uguale a quella della normalizzazione
-    results = {param: [] for param in param_norm[normalizationFunction[0]]}
-
     # Salvo parametri necessari ad invertire la normalizzazione
-    for paz in paz_path:
-        for param in param_norm[normalizationFunction[0]]:
-            value = GetPatientParameters(paz, param, df)
-            results[param].append(value)
-
-     # Salvo parametri necessari ad invertire la normalizzazione
     for image in DSinputPath_test:
         # Normalizzaizone minmax
         input_min.append(GetPatientParameters(image, param_norm['minmax'][0], df))
@@ -727,8 +715,6 @@ if test:
         input_std.append(GetPatientParameters(image, param_norm['standard'][1], df))
         target_mean.append(GetPatientParameters(image, param_norm['standard'][2], df))
         target_std.append(GetPatientParameters(image, param_norm['standard'][3], df))
-
-    
 
     # DEBUG generazione immagini
     '''for step, (input_image, target) in enumerate(test_dataset):
@@ -757,10 +743,7 @@ if test:
                 inp_ii = np.array(inp_i)
                 tar_ii = np.array(tar_i)
 
-                # TEST: controllare se dopo denormalizzazione tornano i valori del file .npy
-
                 # CONTROLLARE COME DENORMALIZZARE OUTPUT (MEGLIO INPUT DATO CHE TEORICAMENTE TARGET NON LO ABBIAMO????)  
-
                 index = i*batch_size + ii
 
                 if normalizationFunction[0] == 'minmax':
