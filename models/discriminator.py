@@ -1,6 +1,7 @@
 
 import tensorflow as tf
 
+SEED = 42
 
 def downsample(filters, size, apply_batchnorm=True):
   initializer = tf.random_normal_initializer(0., 0.02)
@@ -24,7 +25,6 @@ def Discriminator():
 
   inp = tf.keras.layers.Input(shape=(512, 512, 1), name='input_image')
   tar = tf.keras.layers.Input(shape=(512, 512, 1), name='target_image')
-
   x = tf.keras.layers.concatenate([inp, tar])  # (batch_size, 256, 256, channels*2)
 
   down1 = downsample(64, 4, False)(x)  # (batch_size, 128, 128, 64)

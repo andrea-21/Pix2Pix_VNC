@@ -8,9 +8,13 @@ from models.discriminator import *
 
 # allena su un batch singolo
 @tf.function
-def train_step(input_image, target, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer):
+def train_step(input_image, target, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, sigma):
   with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
     gen_output = generator(input_image, training=True)
+
+    # Aggiunta rumore alle immagini date al discriminatore
+    target = target*sigma
+    gen_output = gen_output*sigma
 
     # Loss discriminatore su immagini reali e false
     disc_real_output = discriminator([input_image, target], training=True)
@@ -44,10 +48,11 @@ def train_step(input_image, target, _lambda, generator, discriminator, generator
 
 # train_ds è il full dataset
 #rifare con epoche e batch 
-def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics):
+def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, losses_history, losses_metrics, f1_score_metrics, sigma):
     example_input, example_target = next(iter(val_ds.take(1)))
     start = time.time()
 
+    # target.shape=(8, 512, 512, 1)
     # Alla fine genera errore "W tensorflow/core/framework/local_rendezvous.cc:404] Local rendezvous is aborting with status: OUT_OF_RANGE: End of sequence" ma non dovrebbe essere un bug, ma solo la fine del dataset
     for step, (input_image, target) in enumerate(train_ds):
 
@@ -67,7 +72,7 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
 
       gen_total_loss, gen_gan_loss, gen_l1_loss, \
       disc_total_loss,  disc_real_loss, \
-      disc_generated_loss, probs_gen, probs_real = train_step(input_image, target, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer)
+      disc_generated_loss, probs_gen, probs_real = train_step(input_image, target, _lambda, generator, discriminator, generator_optimizer, discriminator_optimizer, sigma)
       
       # Appende loss al vettore delle loss_history       
       # Appende loss alla metrica per il calcolo della loss dell'epoca attuale
@@ -123,4 +128,83 @@ def fit_test(train_ds, val_ds, _lambda, generator, discriminator, generator_opti
     
     return None, None, None
 
+import tensorflow as tf
+import math
 
+
+class NoiseScheduler:
+
+    def __init__(self,
+                 initial_noise=0.2,
+                 final_epoch=50,
+                 decay_type='linear'):
+        """
+        Parameters
+        ----------
+        initial_noise : float
+            Valore iniziale del fattore di rumore
+
+        final_epoch : int
+            Epoca in cui il rumore diventa ~0
+
+        decay_type : str
+            'linear' oppure 'exponential'
+        """
+
+        self.initial_noise = initial_noise
+        self.final_epoch = final_epoch
+        self.decay_type = decay_type.lower()
+
+        if self.decay_type not in ['linear', 'exponential']:
+            raise ValueError(
+                "decay_type deve essere 'linear' o 'exponential'"
+            )
+
+    def get_noise_factor(self, epoch):
+
+        # Decadimento lineare
+        if self.decay_type == 'linear':
+
+            factor = max(
+                0.0,
+                1.0 - (epoch / self.final_epoch)
+            )
+
+            return self.initial_noise * factor
+
+        # Decadimento esponenziale
+        elif self.decay_type == 'exponential':
+
+            # k scelto in modo da avere valore ~0 a final_epoch
+            k = 5.0 / self.final_epoch
+
+            return self.initial_noise * math.exp(-k * epoch)
+
+    def generate_noise_map(self, images, epoch):
+        """
+        Genera la mappa di rumore.
+
+        Parameters
+        ----------
+        images : tensor
+            Batch immagini
+            Shape: (batch, 512, 512, 1)
+
+        epoch : int
+
+        Returns
+        -------
+        noise_map : tensor
+            Stessa shape di images
+        """
+
+        noise_factor = self.get_noise_factor(epoch)
+
+        noise_map = tf.random.normal(
+            shape=tf.shape(images),
+            mean=1.0,
+            stddev=noise_factor,
+            dtype=images.dtype
+        )
+
+        return noise_map

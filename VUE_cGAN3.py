@@ -129,7 +129,7 @@ plot = False
 statistics = False
 #########################
 
-epochs = 400
+epochs = 100
 _lambda = 100
 
 #########################
@@ -475,10 +475,15 @@ if train:
     #30GB di memoria
     train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size).prefetch(tf.data.AUTOTUNE)
     
+    # Creazione gestore del rumore da applicare nel discriminatore
+    noise_scheduler = NoiseScheduler(initial_std=0.15, final_epoch=30)    
     
     for epoch in range(epochs):
 
         print('\nEpoch ', epoch, '/', epochs,' \n')
+
+        # Rumore moltiplicato con input del discriminatore (all'epoca 30 deve diventare 1)
+        sigma =  noise_scheduler.generate_noise_map(batch_size, epoch)
       
         # Reset metriche per epoca attuale
         for key in losses:
@@ -487,7 +492,7 @@ if train:
         # Training vero e proprio della singola epoca
         losses_history, losses_metrics, f1_score_metrics = fit(train_dataset, val_dataset, _lambda, 
                                              generator, discriminator, generator_optimizer, discriminator_optimizer, 
-                                             losses_history, losses_metrics, f1_score_metrics)
+                                             losses_history, losses_metrics, f1_score_metrics, sigma)
 
         # Ottengo valore medio epoca
         for key, metric in losses_metrics.items():
@@ -656,6 +661,8 @@ if test:
     #batch the dataset
     test_dataset = test_dataset.batch(batch_size).prefetch(buffer_size=tf.data.AUTOTUNE)
 
+
+
 if test:
 
     # Creo cartela dove finiscono i plots, se già presente metto un 2 alla fine
@@ -683,6 +690,18 @@ if test:
         'standard': ['input_mean', 'input_std', 'target_mean', 'target_std']
     }
 
+    # Normalizzazione minmax
+    input_min = []
+    input_max = []
+    target_min = []
+    target_max = []
+
+    # Normalizzazione standard
+    input_mean = []
+    input_std = []
+    target_mean = []
+    target_std = []
+
     # Controllo se la normalizzazione è già presente
     if normalizationFunction[0] not in param_norm:
         raise ValueError(f"Normalizzazione non supportata: {normalizationFunction[0]}")
@@ -695,6 +714,19 @@ if test:
         for param in param_norm[normalizationFunction[0]]:
             value = GetPatientParameters(paz, param, df)
             results[param].append(value)
+
+     # Salvo parametri necessari ad invertire la normalizzazione
+    for image in DSinputPath_test:
+        # Normalizzaizone minmax
+        input_min.append(GetPatientParameters(image, param_norm['minmax'][0], df))
+        input_max.append(GetPatientParameters(image, param_norm['minmax'][1], df))
+        target_min.append(GetPatientParameters(image, param_norm['minmax'][2], df))
+        target_max.append(GetPatientParameters(image, param_norm['minmax'][3], df))
+        # Normalizzazione standard
+        input_mean.append(GetPatientParameters(image, param_norm['standard'][0], df))
+        input_std.append(GetPatientParameters(image, param_norm['standard'][1], df))
+        target_mean.append(GetPatientParameters(image, param_norm['standard'][2], df))
+        target_std.append(GetPatientParameters(image, param_norm['standard'][3], df))
 
     
 
@@ -727,10 +759,23 @@ if test:
 
                 # TEST: controllare se dopo denormalizzazione tornano i valori del file .npy
 
-                # CONTROLLARE COME DENORMALIZZARE OUTPUT (MEGLIO INPUT DATO CHE TEORICAMENTE TARGET NON LO ABBIAMO????)
-                inp_scale, inp_shift = get_scale_shift(results, normalizationFunction[0], 'input', 0)
-                tar_scale, tar_shift = get_scale_shift(results, normalizationFunction[0], 'target', 0)
+                # CONTROLLARE COME DENORMALIZZARE OUTPUT (MEGLIO INPUT DATO CHE TEORICAMENTE TARGET NON LO ABBIAMO????)  
 
+                index = i*batch_size + ii
+
+                if normalizationFunction[0] == 'minmax':
+                    inp_scale = input_max[index] - input_min[index]
+                    inp_shift = input_min[index]
+                    tar_scale = target_max[index] - target_min[index]
+                    tar_shift = target_min[index]
+
+                elif normalizationFunction[0] == 'standard':
+                    inp_scale = input_std[index] + 1e-8
+                    inp_shift = input_mean[index]
+                    tar_scale = input_std[index] + 1e-8
+                    tar_shift = input_mean[index]
+
+                
                 # Denormalizzo input, target e output (OUTPUT NORMALIZZATO CON DATI TARGET)
                 inp_denorm  = inp_ii * inp_scale + inp_shift
                 tar_denorm  = tar_ii * tar_scale + tar_shift
