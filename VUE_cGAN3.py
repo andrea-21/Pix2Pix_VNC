@@ -110,7 +110,7 @@ stride = 1
 #########################
 ####### TRAINING ########
 #########################
-train = True
+train = False
 #######################
 
 
@@ -333,7 +333,9 @@ if test:
     # Versione batch 8 100 epoche lambda 100
     #exp = "experiment_07-05-2026--16-45"
     # Versione batch 8 400 epoche lambda 100
-    exp = "experiment_14-05-2026--19-42"
+    #exp = "experiment_14-05-2026--19-42"
+    # Versione batch 8 100 epoche lambda 100, rumore disc 0.3, 30 epoche
+    exp = "experiment_19-05-2026--15-36"
     checkpoint_dir = os.path.dirname(os.path.realpath(__file__))
     experimentPath_load = os.path.join(checkpoint_dir,"experiments", exp)
 
@@ -476,7 +478,7 @@ if train:
     train_dataset = train_dataset.shuffle(buffer_size=train_dataset.cardinality(), reshuffle_each_iteration=True, seed = RNG_SHUFFLE).batch(batch_size, drop_remainder=True).prefetch(tf.data.AUTOTUNE)
     
     # Creazione gestore del rumore da applicare nel discriminatore (all'epoca 30 deve diventare 1)
-    noise_scheduler = NoiseScheduler(initial_noise=0.15, final_epoch=30, decay_type='linear')    
+    noise_scheduler = NoiseScheduler(initial_noise=0.3, final_epoch=30, decay_type='linear')    
     
     for epoch in range(epochs):
 

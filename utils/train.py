@@ -95,9 +95,10 @@ def fit(train_ds, val_ds, _lambda, generator, discriminator, generator_optimizer
 
       # Appendo i valori delle f1_score su immagini reali e su immagini generate
       probs_gen = tf.reshape(probs_gen, [probs_gen.shape[0], -1])
+      fake_preds = 1.0 - probs_gen
       probs_real = tf.reshape(probs_real, [probs_real.shape[0], -1])
 
-      f1_score_metrics["f1_gen"].update_state(tf.zeros_like(probs_gen), probs_gen)
+      f1_score_metrics["f1_gen"].update_state(tf.ones_like(fake_preds), fake_preds)
       f1_score_metrics["f1_real"].update_state(tf.ones_like(probs_real), probs_real)
 
       # Training step
@@ -178,7 +179,7 @@ class NoiseScheduler:
         # Decadimento esponenziale
         elif self.decay_type == 'exponential':
 
-            # k scelto in modo da avere valore ~0 a final_epoch
+            # k scelto in modo da avere valore 0.67% dell'iniziale a final_epoch
             k = 5.0 / self.final_epoch
 
             return self.initial_noise * math.exp(-k * epoch)
